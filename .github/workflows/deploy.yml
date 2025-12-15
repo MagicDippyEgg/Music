@@ -1,4 +1,4 @@
-name: Deploy to VPS
+name: Deploy
 
 on:
   push:
@@ -8,22 +8,22 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-    - name: Deploy using SSH
+    - name: Deploy via SSH
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_KEY }}
         script: |
-          # Go to folder
-          cd /home/ubuntu/repo
+          # 1. Go to the ACTUAL folder
+          cd /home/ubuntu/Music
           
-          # Pull changes
+          # 2. Pull changes
           git pull origin main
           
-          # Install any new requirements
+          # 3. Update Dependencies
           source venv/bin/activate
           pip install -r requirements.txt
           
-          # Restart the bot service
-          sudo systemctl restart repo
+          # 4. Restart the ACTUAL service
+          sudo systemctl restart musicbot
