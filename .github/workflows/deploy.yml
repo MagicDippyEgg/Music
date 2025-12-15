@@ -20,6 +20,7 @@ jobs:
           
           # 2. Pull changes
           git pull origin main
+          git reset --hard origin/main
           
           # 3. Update Dependencies
           source venv/bin/activate

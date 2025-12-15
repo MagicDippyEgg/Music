@@ -22,6 +22,7 @@ client = discord.Client(intents=intents)
 voice_client = None
 song_list = []
 is_playing_song = False
+current_song_name = "Nothing" # New variable to store the name of the current song
 
 def load_songs():
     """Loads song paths into song_list."""
@@ -48,26 +49,37 @@ def after_song_finished(error):
 @tasks.loop(seconds=1) # Check frequently to start the next song
 async def play_next_song():
     """Loop to ensure a song is always playing if possible."""
-    global voice_client, is_playing_song
+    global voice_client, is_playing_song, current_song_name
 
     # Only proceed if the bot is connected, not currently playing, and has songs
     if voice_client and voice_client.is_connected() and not voice_client.is_playing() and song_list and not is_playing_song:
         is_playing_song = True
         
         song_path = random.choice(song_list)
-        print(f"Now playing: {os.path.basename(song_path)}")
+        
+        # --- Update current song name BEFORE playing ---
+        current_song_name = os.path.basename(song_path)
+        print(f"Now playing: {current_song_name}")
+        
+        # Manually trigger a status update right after changing the song
+        if update_status.is_running():
+            await update_status()
 
         try:
             source = discord.FFmpegPCMAudio(song_path)
             # The 'after' callback ensures the next song starts when this one finishes
             voice_client.play(source, after=after_song_finished)
         except Exception as e:
-            print(f"Failed to play song {song_path}: {e}")
+            print(f"Failed to play song {current_song_name}: {e}")
             is_playing_song = False # Reset flag on failure
+            current_song_name = "Nothing" # Reset status name on failure
 
     elif not song_list and play_next_song.is_running():
         print("No songs to play. Stopping music loop.")
         play_next_song.stop()
+        current_song_name = "Nothing"
+        if update_status.is_running():
+            await update_status()
 
 # --- Voice Channel Functions ---
 
@@ -101,26 +113,20 @@ async def keep_connected():
         play_next_song.start()
 
 
-# --- New Status Update Loop ---
+# --- Status Update Loop ---
 
 @tasks.loop(minutes=10)
 async def update_status():
-    """Sets the bot's status to 'Listening to' a random song from the list."""
-    if not song_list:
-        print("Cannot update status: No songs loaded.")
-        # Optionally set a generic status if no songs are found
-        # activity = discord.Activity(type=discord.ActivityType.listening, name="Silence")
-        # await client.change_presence(activity=activity)
-        return
-
-    # Get a random song path, then extract just the filename without the path
-    song_path = random.choice(song_list)
-    song_filename = os.path.basename(song_path)
+    """Sets the bot's status to 'Listening to' the currently playing song."""
+    global current_song_name
+    
+    # Use the globally tracked song name
+    activity_name = current_song_name
     
     # Create the 'Listening to' activity
-    activity = discord.Activity(type=discord.ActivityType.listening, name=song_filename)
+    activity = discord.Activity(type=discord.ActivityType.listening, name=activity_name)
     
-    print(f"Updating status to: Listening to {song_filename}")
+    print(f"Updating status to: Listening to {activity_name}")
     await client.change_presence(activity=activity)
 
 # --- Events ---
@@ -136,8 +142,9 @@ async def on_ready():
     if song_list:
         if not play_next_song.is_running():
             play_next_song.start()
+            
         if not update_status.is_running():
-            # Start immediately on ready, then the loop takes over
+            # Start immediately on ready (will set status to "Nothing" or the first song if join_channel was fast)
             await update_status() 
             update_status.start()
 
