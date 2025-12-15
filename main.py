@@ -16,6 +16,7 @@ intents.guilds = True
 intents.voice_states = True
 intents.members = True
 
+# Used commands.Bot(command_prefix="!") as in your original script
 bot = commands.Bot(command_prefix="!", intents=intents)
 voice_client = None
 song_list = []
@@ -35,11 +36,19 @@ def load_songs():
             song_list.append(os.path.join(SONGS_FOLDER, filename))
     print(f"Found {len(song_list)} songs.")
 
+# --- ESSENTIAL FIX #1: Thread-safe callback ---
 def after_song_finished(error):
     global is_playing_song
     is_playing_song = False
+    
+    # Safely schedules play_next_song_start onto the main event loop
+    bot.loop.call_later(1, lambda: bot.loop.create_task(play_next_song_start()))
+
+async def play_next_song_start():
+    # Helper to start the loop if it's not running
     if not play_next_song.is_running():
         play_next_song.start()
+
 
 @tasks.loop(seconds=1)
 async def play_next_song():
@@ -52,10 +61,12 @@ async def play_next_song():
         print(f"Now playing: {current_song_name}")
 
         if update_status.is_running():
-            await update_status()
+            # Call the function directly to update the status immediately
+            await update_status() 
 
         try:
-            source = discord.FFmpegPCMAudio(song_path)
+            # Added a basic before_options for stability (highly recommended)
+            source = discord.FFmpegPCMAudio(song_path, before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5')
             voice_client.play(source, after=after_song_finished)
         except Exception as e:
             print(f"Failed to play {current_song_name}: {e}")
@@ -66,6 +77,7 @@ async def play_next_song():
         play_next_song.stop()
         current_song_name = "Nothing"
         if update_status.is_running():
+            # Call the function directly to update the status immediately
             await update_status()
 
 # --- Voice Channel Functions ---
@@ -102,18 +114,27 @@ async def update_status():
 # --- Events ---
 @bot.event
 async def on_ready():
-    await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
     print(f'Logged in as {bot.user}')
     load_songs()
+
+    # --- ESSENTIAL FIX #2: Sync commands before starting loops ---
+    try:
+        # This is the crucial step: sync the slash commands now
+        await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
+        print("Application commands synced.")
+    except Exception as e:
+        print(f"Failed to sync commands: {e}")
+        
     await join_channel()
     keep_connected.start()
     if song_list:
         if not play_next_song.is_running():
             play_next_song.start()
+        
+        # Call function directly, then start the loop
+        await update_status() 
         if not update_status.is_running():
-            await update_status()
             update_status.start()
-
 
 @bot.event
 async def on_voice_state_update(member, before, after):
@@ -128,11 +149,13 @@ async def on_voice_state_update(member, before, after):
 async def skip(interaction: discord.Interaction):
     global voice_client, current_song_name
     if voice_client and voice_client.is_playing():
+        song_to_skip = current_song_name # Capture the name before stopping
         voice_client.stop()  # triggers after_song_finished
-        await interaction.response.send_message(f"Skipped: {current_song_name}")
-        current_song_name = "Nothing"
+        # The next song will be set by the play_next_song loop
+        await interaction.response.send_message(f"Skipped: **{song_to_skip}**")
+        current_song_name = "Nothing" # Reset immediately for status/info commands
     else:
-        await interaction.response.send_message("No song is currently playing!")
+        await interaction.response.send_message("No song is currently playing!", ephemeral=True)
 
 # --- Run Bot ---
 if not TOKEN:
