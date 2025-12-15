@@ -102,6 +102,7 @@ async def update_status():
 # --- Events ---
 @bot.event
 async def on_ready():
+    await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
     print(f'Logged in as {bot.user}')
     load_songs()
     await join_channel()
@@ -113,6 +114,7 @@ async def on_ready():
             await update_status()
             update_status.start()
 
+
 @bot.event
 async def on_voice_state_update(member, before, after):
     global voice_client
@@ -122,16 +124,15 @@ async def on_voice_state_update(member, before, after):
                 print("Disconnected! Rejoining...")
                 await join_channel()
 
-# --- Slash Command: /skip ---
-@bot.slash_command(description="Skip the current song")
-async def skip(ctx):
+@bot.tree.command(name="skip", description="Skip the current song")
+async def skip(interaction: discord.Interaction):
     global voice_client, current_song_name
     if voice_client and voice_client.is_playing():
         voice_client.stop()  # triggers after_song_finished
-        await ctx.respond(f"Skipped: {current_song_name}")
+        await interaction.response.send_message(f"Skipped: {current_song_name}")
         current_song_name = "Nothing"
     else:
-        await ctx.respond("No song is currently playing!")
+        await interaction.response.send_message("No song is currently playing!")
 
 # --- Run Bot ---
 if not TOKEN:
