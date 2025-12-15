@@ -10,7 +10,7 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y ffmpeg libffi-dev libnacl-dev python3-dev && \
     rm -rf /var/lib/apt/lists/*
-
+# test
 # Copy requirements first to leverage caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
