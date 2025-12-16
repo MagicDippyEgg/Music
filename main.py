@@ -75,6 +75,7 @@ async def play_next_song():
     else:
         vc = None
 
+    # This condition starts a new song if criteria are met (connected, not playing, and songs exist)
     if vc and vc.is_connected() and not vc.is_playing() and song_list and not is_playing_song:
         voice_client = vc
         is_playing_song = True
@@ -82,19 +83,16 @@ async def play_next_song():
         current_song_name = os.path.basename(song_path)
         print(f"Now playing: {current_song_name}")
         try:
-            source = discord.FFmpegPCMAudio(song_path,
-                before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5')
+            # FIX APPLIED: Removed 'before_options' which were causing the FFmpeg error
+            source = discord.FFmpegPCMAudio(song_path)
             vc.play(source, after=after_song_finished)
         except Exception as e:
             print(f"Failed to play {current_song_name}: {e}")
             traceback.print_exc()
             is_playing_song = False
             current_song_name = "Nothing"
-    # --- ORIGINAL CODE STOPPED THE LOOP HERE, THIS SECTION IS REMOVED ---
-    # elif not song_list and play_next_song.is_running():
-    #     print("No songs to play. Stopping loop.")
-    #     play_next_song.stop()
-    #     current_song_name = "Nothing"
+    # FIX APPLIED: The code block to stop the loop when the song_list is empty has been removed
+    # This ensures the loop keeps running indefinitely.
 
 # --- VOICE channel management ---
 async def join_channel():
