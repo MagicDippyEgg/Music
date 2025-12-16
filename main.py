@@ -90,10 +90,11 @@ async def play_next_song():
             traceback.print_exc()
             is_playing_song = False
             current_song_name = "Nothing"
-    elif not song_list and play_next_song.is_running():
-        print("No songs to play. Stopping loop.")
-        play_next_song.stop()
-        current_song_name = "Nothing"
+    # --- ORIGINAL CODE STOPPED THE LOOP HERE, THIS SECTION IS REMOVED ---
+    # elif not song_list and play_next_song.is_running():
+    #     print("No songs to play. Stopping loop.")
+    #     play_next_song.stop()
+    #     current_song_name = "Nothing"
 
 # --- VOICE channel management ---
 async def join_channel():
