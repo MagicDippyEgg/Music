@@ -19,8 +19,8 @@ def env_int(name, default):
         return default
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID = env_int("GUILD_ID", 1386989554682171392)
-VC_ID = env_int("VC_ID", 1450026402815676446)
+GUILD_ID = env_int("GUILD_ID", 1308308421216309289)
+VC_ID = env_int("VC_ID", 1459109179250835540)
 SONGS_FOLDER = "songs"
 
 # --- CHECK FFmpeg ---
